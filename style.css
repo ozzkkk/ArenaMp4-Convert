@@ -6,6 +6,7 @@ main{max-width:640px;margin:auto;padding:14px}
 .row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}.row label{flex:1;min-width:130px;font-size:.85rem;font-weight:600}
 select,input[type=number]{width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#fff;font-size:.95rem}
 .chk{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:.9rem}
+.saverow{display:flex;gap:10px;align-items:center;margin-top:12px}.saverow .hint{flex:1;margin:0}
 .btns{flex-wrap:wrap}.btn{flex:1;padding:12px;border-radius:12px;border:1px solid #334155;background:#1e293b;color:#fff;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;font-size:.95rem}
 .btn:disabled{opacity:.45}.primary{background:#ea580c;border-color:#ea580c}.success{background:#16a34a;border-color:#16a34a;width:100%;margin-top:10px}.ghost{background:transparent;color:#38bdf8}
 .bar{height:12px;background:#0b1220;border:1px solid #334155;border-radius:99px;overflow:hidden;margin-top:14px}

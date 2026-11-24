@@ -1,12 +1,12 @@
 'use strict';
-/* MP4 Dönüştürücü — toplu, üzerine yazan, format tespitli (ağır iş worker.js'te) */
+/* MP4 Dönüştürücü — toplu, otomatik kaydeden, format tespitli (ağır iş worker.js'te) */
 const $=id=>document.getElementById(id);
 const drop=$('drop'),input=$('fileInput'),list=$('list'),statusEl=$('status');
-const convertBtn=$('convertBtn'),clearBtn=$('clearBtn'),dlAll=$('dlAll');
+const convertBtn=$('convertBtn'),clearBtn=$('clearBtn'),saveInfo=$('saveInfo');
 const barWrap=$('barWrap'),bar=$('bar');
 let queue=[],busy=false,curRatio=0,curIdx=0,chain=Promise.resolve(),msgId=0,activeId=0;
+let worker=null,rootHandle=null,dirHandle=null;
 const pending=new Map();
-let worker=null;
 
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 
@@ -43,7 +43,6 @@ function ask(type,payload){
     w.postMessage({id,type,...payload},payload.buffer?[payload.buffer]:[]);
   }));
 }
-/* işler sıralı: worker tek iş yapsın */
 const job=fn=>{const p=chain.then(fn,fn);chain=p.then(()=>{},()=>{});return p};
 /* dosya okuma: FileReader (bazı telefonlarda file.arrayBuffer çalışmaz) */
 const readBuf=file=>new Promise((res,rej)=>{
@@ -53,6 +52,53 @@ const readBuf=file=>new Promise((res,rej)=>{
   r.readAsArrayBuffer(file);
 });
 
+/* --- kayıt yeri: İndirilenler/mp4 --- */
+const idbGet=()=>new Promise(r=>{try{const q=indexedDB.open('mp4d',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>{const t=q.result.transaction('kv').objectStore('kv').get('dir');t.onsuccess=()=>r(t.result||null);t.onerror=()=>r(null)};q.onerror=()=>r(null)}catch(_){r(null)}});
+const idbSet=h=>new Promise(r=>{try{const q=indexedDB.open('mp4d',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>{const t=q.result.transaction('kv','readwrite').objectStore('kv').put(h,'dir');t.onsuccess=()=>r(true);t.onerror=()=>r(false)};q.onerror=()=>r(false)}catch(_){r(false)}});
+async function initSave(){
+  if(window.showDirectoryPicker){
+    $('pickDirBtn').hidden=false;
+    try{
+      const h=await idbGet();
+      if(h){rootHandle=h;dirHandle=await h.getDirectoryHandle('mp4',{create:true})}
+    }catch(_){}
+    saveInfo.textContent=dirHandle?'Kayıt: İndirilenler/mp4 ✅':'Kayıt: İndirilenler — mp4 klasörü için bir kez seçin';
+  }else{
+    saveInfo.textContent='Kayıt: İndirilenler (otomatik indirme)';
+  }
+}
+async function pickDir(){
+  try{
+    const h=await showDirectoryPicker({mode:'readwrite'});
+    if((await h.requestPermission({mode:'readwrite'}))!=='granted')throw new Error('Yazma izni verilmedi');
+    rootHandle=h;dirHandle=await h.getDirectoryHandle('mp4',{create:true});
+    await idbSet(h);
+    saveInfo.textContent='Kayıt: İndirilenler/mp4 ✅ (klasör oluşturuldu)';
+  }catch(e){if(e.name!=='AbortError')saveInfo.textContent='Klasör seçilemedi: '+e.message}
+}
+async function ensurePerm(){
+  if(!rootHandle)return;
+  try{
+    if((await rootHandle.queryPermission({mode:'readwrite'}))!=='granted'
+      &&(await rootHandle.requestPermission({mode:'readwrite'}))!=='granted'){dirHandle=null;return}
+    dirHandle=await rootHandle.getDirectoryHandle('mp4',{create:true});
+  }catch(_){dirHandle=null}
+}
+async function saveOut(name,blob){
+  if(dirHandle){
+    try{
+      const fh=await dirHandle.getFileHandle(name,{create:true});
+      const w=await fh.createWritable();await w.write(blob);await w.close();
+      return 'folder';
+    }catch(e){console.warn('klasöre yazılamadı',e)}
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  return 'download';
+}
+
 /* --- dosya ekleme --- */
 const ok=f=>f.type.startsWith('video/')||/\.(mp4|mkv|avi|mov|webm|flv|wmv|3gp|m4v)$/i.test(f.name);
 const sz=b=>{const u=['B','KB','MB','GB'];let i=0;while(b>=1024&&i<3){b/=1024;i++}return b.toFixed(i?1:0)+' '+u[i]};
@@ -60,10 +106,10 @@ const CN={h264:'H.264',hevc:'H.265',mpeg4:'MPEG-4',mpeg2video:'MPEG-2',mpeg1vide
 aac:'AAC',mp3:'MP3',opus:'Opus',vorbis:'Vorbis',ac3:'AC3',eac3:'E-AC3',mp2:'MP2',wmav2:'WMA',wmav1:'WMA',pcm_s16le:'PCM',pcm_s24le:'PCM',flac:'FLAC',alac:'ALAC',amr_nb:'AMR',amr_wb:'AMR'};
 const metaText=it=>sz(it.file.size)+(it.srcFmt?' • '+it.srcFmt:'')+(it.doneFmt?' → '+it.doneFmt:'');
 
-function addFile(file,handle){
+function addFile(file){
   if(!ok(file))return;
   if(queue.some(q=>q.file.name===file.name&&q.file.size===file.size))return;
-  const item={file,handle:handle||null,url:null,state:'Bekliyor'};
+  const item={file,url:null,state:'Bekliyor',done:false};
   queue.push(item);renderItem(item);updateBtns();
   job(()=>probe(item));
 }
@@ -81,26 +127,16 @@ function setState(it,s){it.state=s;if(it.stEl)it.stEl.textContent=s}
 function updateBtns(){
   convertBtn.disabled=!queue.length||busy;
   clearBtn.hidden=!queue.length;
-  dlAll.hidden=!queue.some(q=>q.url);
 }
-async function pick(){
-  if(busy)return;
-  if(window.showOpenFilePicker){
-    try{
-      const hs=await showOpenFilePicker({multiple:true,types:[{description:'Videolar',accept:{'video/*':['.mp4','.mkv','.avi','.mov','.webm','.flv','.wmv','.3gp','.m4v']}}]});
-      for(const h of hs)addFile(await h.getFile(),h);
-      return;
-    }catch(e){if(e.name==='AbortError')return}
-  }
-  input.click();
-}
-$('addBtn').onclick=pick;drop.onclick=pick;
+const pick=()=>input.click();
+drop.onclick=pick;
 drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')pick()};
 input.onchange=()=>{[...input.files].forEach(f=>addFile(f));input.value=''};
 ['dragover','dragenter'].forEach(e=>drop.addEventListener(e,v=>{v.preventDefault();drop.classList.add('drag')}));
 ['dragleave','drop'].forEach(e=>drop.addEventListener(e,v=>{v.preventDefault();drop.classList.remove('drag')}));
 drop.addEventListener('drop',e=>[...e.dataTransfer.files].forEach(f=>addFile(f)));
 clearBtn.onclick=()=>{if(busy)return;queue.forEach(q=>q.url&&URL.revokeObjectURL(q.url));queue=[];list.innerHTML='';updateBtns();statusEl.textContent=''};
+$('pickDirBtn').onclick=pickDir;
 
 function drawBar(){
   const total=queue.length||1,pct=Math.round(((curIdx+curRatio)/total)*100);
@@ -177,37 +213,31 @@ function args(it){
   }
   return a.concat('-y','output.'+ext);
 }
-async function overwrite(handle,blob){
-  if((await handle.requestPermission({mode:'readwrite'}))!=='granted')throw new Error('Yazma izni yok');
-  const w=await handle.createWritable();await w.write(blob);await w.close();
-}
 
 convertBtn.onclick=async()=>{
   if(busy||!queue.length)return;
   busy=true;updateBtns();statusEl.className='status';barWrap.hidden=false;curIdx=0;curRatio=0;
+  await ensurePerm(); // kullanıcı hareketi içinde izin tazele
   try{
     for(let i=0;i<queue.length;i++){
       const it=queue[i];curIdx=i;curRatio=0;drawBar();
-      if(it.state==='Hazır ✅'||it.state.startsWith('Yazıldı'))continue;
+      if(it.done)continue;
       setState(it,'Dönüştürülüyor…');statusEl.textContent=`${i+1}/${queue.length}: ${it.file.name}`;
       try{
         const fd=FMT[$('format').value],ext=fd.ext,out='output.'+ext;
         const buf=await readBuf(it.file);
         const data=await job(()=>ask('convert',{buffer:buf,args:args(it),outName:out}));
         const blob=new Blob([data],{type:fd.mime});
-        // Önce orijinalin üzerine yazmayı dene (uzantı eşleşiyorsa)
-        let done=false;
-        if($('overwrite').checked&&it.handle&&it.file.name.toLowerCase().endsWith('.'+ext)){
-          try{await overwrite(it.handle,blob);done=true}catch(e){console.warn(e)}
-        }
-        it.doneFmt=fd.label;it.metaEl.textContent=metaText(it);
-        if(done){setState(it,'Yazıldı ✅')}
-        else{
-          if(it.url)URL.revokeObjectURL(it.url);
-          it.url=URL.createObjectURL(blob);
-          const a=document.createElement('a');a.href=it.url;a.download=outName(it.file.name);a.textContent='⬇️ '+ext.toUpperCase();
-          it.stEl.replaceWith(a);it.stEl=a;it.state='Hazır ✅';
-        }
+        const name=outName(it.file.name);
+        const where=await saveOut(name,blob);
+        it.done=true;it.doneFmt=fd.label;it.metaEl.textContent=metaText(it);
+        if(it.url)URL.revokeObjectURL(it.url);
+        it.url=URL.createObjectURL(blob);
+        it.stEl.textContent='';
+        const sp=document.createElement('span');sp.textContent=where==='folder'?'Kaydedildi ✅':'İndirildi ✅';
+        const a=document.createElement('a');a.href=it.url;a.download=name;a.textContent=' ⬇️';a.title='Yeniden indir';
+        it.stEl.append(sp,a);
+        it.state=where==='folder'?'Kaydedildi':'İndirildi';
       }catch(e){
         console.error(e);setState(it,'Hata ❌');
         it.metaEl.textContent=metaText(it)+' — '+String(e&&e.message||e).slice(0,80);
@@ -219,12 +249,4 @@ convertBtn.onclick=async()=>{
   busy=false;updateBtns();
 };
 
-/* --- toplu indirme (üzerine yazılamayanlar için) --- */
-dlAll.onclick=async()=>{
-  const items=queue.filter(q=>q.url);
-  for(const it of items){
-    const a=document.createElement('a');a.href=it.url;a.download=outName(it.file.name);
-    document.body.append(a);a.click();a.remove();
-    await new Promise(r=>setTimeout(r,600));
-  }
-};
+initSave();

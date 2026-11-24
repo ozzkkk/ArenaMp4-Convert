@@ -49,10 +49,12 @@
     </label>
   </div>
   <label class="chk"><input type="checkbox" id="keepCodecs" checked> ⚡ Kodekleri koru (yeniden paketle — anında, kayıpsız)</label>
-  <label class="chk"><input type="checkbox" id="overwrite" checked> Orijinalin üzerine yaz (mümkünse)</label>
+  <div class="saverow">
+    <span id="saveInfo" class="hint">Kayıt: İndirilenler (otomatik)</span>
+    <button id="pickDirBtn" class="btn ghost btn-sm" hidden>📁 mp4 klasörü seç</button>
+  </div>
 
   <div class="row btns">
-    <button id="addBtn" class="btn">📁 Dosya Ekle</button>
     <button id="convertBtn" class="btn primary" disabled>🔄 Tümünü Dönüştür</button>
     <button id="clearBtn" class="btn ghost" hidden>Temizle</button>
   </div>
@@ -60,8 +62,7 @@
   <div class="bar" id="barWrap" hidden><div id="bar"></div></div>
   <p id="status" class="status"></p>
   <ul id="list"></ul>
-  <button id="dlAll" class="btn success" hidden>⬇️ Tümünü İndir</button>
-  <p class="hint">İlk işlemde motor (~30 MB) bir kez indirilir, sonra çevrimdışı çalışır. Dönüşüm arka planda olur, ekran kilitlenmez. "Kodekleri koru" açıksa sadece yeniden paketlenir; kapatınca gerçek kodlama (yavaş ama küçültür/dönüştürür) yapılır.</p>
+  <p class="hint">Dönüştürülen videolar <strong>İndirilenler/mp4</strong> klasörüne orijinal adıyla kaydedilir (klasör seçili değilse doğrudan İndirilenler'e iner). İlk işlemde motor (~30 MB) bir kez indirilir; dönüşüm arka plandadır, ekran kilitlenmez.</p>
 </main>
 <script src="app.js"></script>
 </body>
