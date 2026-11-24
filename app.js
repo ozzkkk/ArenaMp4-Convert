@@ -1,6 +1,6 @@
 'use strict';
 /* MP4 Dönüştürücü — toplu, üzerine yazan, format tespitli sürüm (FFmpeg.wasm 0.11) */
-const CORE='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js';
+const CORE='https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.0/dist/ffmpeg-core.js'; // tek çekirdek: SharedArrayBuffer gerektirmez (GitHub Pages uyumlu)
 const $=id=>document.getElementById(id);
 const drop=$('drop'),input=$('fileInput'),list=$('list'),statusEl=$('status');
 const convertBtn=$('convertBtn'),clearBtn=$('clearBtn'),dlAll=$('dlAll');

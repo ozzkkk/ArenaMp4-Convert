@@ -30,8 +30,8 @@ Videoları **VLC'de sorunsuz açılan MP4 (H.264 + AAC)** dosyalarına çeviren,
 
 ## Notlar
 
-- İlk dönüşümde motor (~30 MB) bir kez indirilir.
-- Çok büyük videolarda **720p** hızlandırır.
+- İlk dönüşümde motor (~30 MB) bir kez indirilir. Motor **tek çekirdekli**dir (@ffmpeg/core-st) — SharedArrayBuffer gerektirmez, bu yüzden GitHub Pages'te ve PWA'da sorunsuz çalışır.
+- Tek çekirdek nedeniyle kodlama yavaştır; büyük videolarda **720p + Hızlı** seçin (ör. 340 MB'lık bölüm telefonda uzun sürebilir).
 - Hedef boyut için kesin sonuç garanti değildir (yaklaşık hedef); video içeriğine göre ±%10 sapabilir.
 - GIF çıktısında ses yoktur; çözünürlük "Orijinal" ise 480p'ye sınırlanır.
 - Üzerine yazma yalnızca Chrome/Edge'de (File System Access API) çalışır ve uzantı eşleşiyorsa yapılır (ör. MP4→MP4); aksi halde indirme bağlantısı verilir.
