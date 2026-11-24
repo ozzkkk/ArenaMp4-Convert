@@ -29,8 +29,10 @@ async function getWorker(){
   }
   worker.onmessage=e=>onMsg(e.data);
   worker.onerror=e=>{
-    const err=new Error('Worker hatası: '+(e.message||'bilinmiyor'));
+    const err=new Error('Worker başlatılamadı: '+(e.message||"worker.js GitHub'a yüklendi mi?"));
     pending.forEach(r=>r.reject(err));pending.clear();
+    try{worker.terminate()}catch(_){}
+    worker=null;
   };
   return worker;
 }
@@ -43,6 +45,13 @@ function ask(type,payload){
 }
 /* işler sıralı: worker tek iş yapsın */
 const job=fn=>{const p=chain.then(fn,fn);chain=p.then(()=>{},()=>{});return p};
+/* dosya okuma: FileReader (bazı telefonlarda file.arrayBuffer çalışmaz) */
+const readBuf=file=>new Promise((res,rej)=>{
+  const r=new FileReader();
+  r.onload=()=>res(r.result);
+  r.onerror=()=>rej(new Error('Dosya okunamadı'));
+  r.readAsArrayBuffer(file);
+});
 
 /* --- dosya ekleme --- */
 const ok=f=>f.type.startsWith('video/')||/\.(mp4|mkv|avi|mov|webm|flv|wmv|3gp|m4v)$/i.test(f.name);
@@ -103,8 +112,8 @@ async function probe(it){
   if(it.srcFmt)return;
   if(!busy)statusEl.textContent='Format tespit ediliyor…';
   try{
-    const buf=await it.file.arrayBuffer();
-    const info=await job(()=>ask('probe',{buffer:buf}));
+    const buf=await readBuf(it.file);
+    const info=await ask('probe',{buffer:buf}); // NOT: iç içe job() kilitlenir; probe zaten sıranın içinde
     const v=/Video:\s*([\w.]+)/.exec(info),au=/Audio:\s*([\w.]+)/.exec(info);
     const res=/Video:.*?(\d{2,5})x(\d{2,5})/.exec(info);
     const d=/Duration:\s*(\d+):(\d+):([\d.]+)/.exec(info);
@@ -183,7 +192,7 @@ convertBtn.onclick=async()=>{
       setState(it,'Dönüştürülüyor…');statusEl.textContent=`${i+1}/${queue.length}: ${it.file.name}`;
       try{
         const fd=FMT[$('format').value],ext=fd.ext,out='output.'+ext;
-        const buf=await it.file.arrayBuffer();
+        const buf=await readBuf(it.file);
         const data=await job(()=>ask('convert',{buffer:buf,args:args(it),outName:out}));
         const blob=new Blob([data],{type:fd.mime});
         // Önce orijinalin üzerine yazmayı dene (uzantı eşleşiyorsa)
@@ -199,7 +208,10 @@ convertBtn.onclick=async()=>{
           const a=document.createElement('a');a.href=it.url;a.download=outName(it.file.name);a.textContent='⬇️ '+ext.toUpperCase();
           it.stEl.replaceWith(a);it.stEl=a;it.state='Hazır ✅';
         }
-      }catch(e){console.error(e);setState(it,'Hata ❌')}
+      }catch(e){
+        console.error(e);setState(it,'Hata ❌');
+        it.metaEl.textContent=metaText(it)+' — '+String(e&&e.message||e).slice(0,80);
+      }
       curRatio=1;drawBar();
     }
     statusEl.textContent='Bitti!';statusEl.className='status ok';

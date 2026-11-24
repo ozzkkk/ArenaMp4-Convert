@@ -6,7 +6,9 @@ let coreLoaded=false;
 
 function loadCoreScript(){
   if(coreLoaded)return;
-  importScripts(CORE_JS); // self.createFFmpegCore tanımlanır
+  try{importScripts(CORE_JS)}
+  catch(e){throw new Error('Motor betiği indirilemedi (internet bağlantısını kontrol edin)')}
+  if(typeof self.createFFmpegCore!=='function')throw new Error('Motor bulunamadı (createFFmpegCore)');
   coreLoaded=true;
 }
 const ts2sec=ts=>{const p=ts.split(':');return (+p[0])*3600+(+p[1])*60+parseFloat(p[2])};
@@ -50,7 +52,7 @@ async function runCommand(o){
   let outBuf=null;
   if(o.outName){
     try{outBuf=new Uint8Array(mod.FS.readFile(o.outName))}
-    catch(_){err=err||'Çıktı dosyası oluşmadı (ffmpeg hata verdi)'}
+    catch(_){err=err||('Çıktı oluşmadı: '+logText.trim().split('\n').slice(-2).join(' ').slice(0,120))}
   }
   return {logText,outBuf,error:err};
 }
