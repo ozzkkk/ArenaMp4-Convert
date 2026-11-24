@@ -100,7 +100,7 @@ async function saveOut(name,blob){
 }
 
 /* --- dosya ekleme --- */
-const ok=f=>f.type.startsWith('video/')||/\.(mp4|mkv|avi|mov|webm|flv|wmv|3gp|m4v)$/i.test(f.name);
+const ok=f=>f.type.startsWith('video/')||/\.(mp4|mkv|avi|mov|webm|flv|wmv|3gp|m4v|ts|mts|m2ts|mpg|mpeg|vob|ogv|asf)$/i.test(f.name);
 const sz=b=>{const u=['B','KB','MB','GB'];let i=0;while(b>=1024&&i<3){b/=1024;i++}return b.toFixed(i?1:0)+' '+u[i]};
 const CN={h264:'H.264',hevc:'H.265',mpeg4:'MPEG-4',mpeg2video:'MPEG-2',mpeg1video:'MPEG-1',vp9:'VP9',vp8:'VP8',mjpeg:'MJPEG',wmv3:'WMV3',wmv2:'WMV2',theora:'Theora',av1:'AV1',flv1:'FLV',h263:'H.263',vc1:'VC-1',
 aac:'AAC',mp3:'MP3',opus:'Opus',vorbis:'Vorbis',ac3:'AC3',eac3:'E-AC3',mp2:'MP2',wmav2:'WMA',wmav1:'WMA',pcm_s16le:'PCM',pcm_s24le:'PCM',flac:'FLAC',alac:'ALAC',amr_nb:'AMR',amr_wb:'AMR'};
@@ -141,7 +141,17 @@ function updateBtns(){
   convertBtn.disabled=!queue.length||busy;
   clearBtn.hidden=!queue.length;
 }
-const pick=()=>input.click();
+/* Dosyalar uygulaması (gerçek adlar). accept="video/*" Android'de galeri seçicisini açar → kullanmıyoruz */
+async function pick(){
+  if(window.showOpenFilePicker){
+    try{
+      const hs=await showOpenFilePicker({multiple:true});
+      for(const h of hs)addFile(await h.getFile());
+      return;
+    }catch(e){if(e.name==='AbortError')return}
+  }
+  input.click();
+}
 drop.onclick=pick;
 drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')pick()};
 input.onchange=()=>{[...input.files].forEach(f=>addFile(f));input.value=''};
