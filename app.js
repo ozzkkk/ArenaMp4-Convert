@@ -109,18 +109,31 @@ const metaText=it=>sz(it.file.size)+(it.srcFmt?' • '+it.srcFmt:'')+(it.doneFmt
 function addFile(file){
   if(!ok(file))return;
   if(queue.some(q=>q.file.name===file.name&&q.file.size===file.size))return;
-  const item={file,url:null,state:'Bekliyor',done:false};
+  const item={file,name:file.name,url:null,state:'Bekliyor',done:false};
   queue.push(item);renderItem(item);updateBtns();
   job(()=>probe(item));
 }
 function renderItem(it){
   const li=document.createElement('li');
   li.innerHTML=`<span>📹</span><div class="nm"><div class="t"></div><small class="meta"></small></div><span class="st">Bekliyor</span>`;
-  li.querySelector('.t').textContent=it.file.name;
-  li.querySelector('.t').title=it.file.name;
+  it.tEl=li.querySelector('.t');it.tEl.textContent=it.name;it.tEl.title=it.name;
+  const ed=document.createElement('button');ed.className='x';ed.textContent='✏️';ed.title='Yeniden adlandır';
+  ed.onclick=()=>{
+    if(busy)return;
+    const cur=it.name,inp=document.createElement('input');
+    inp.value=cur;inp.style.cssText='flex:1;min-width:0;background:#0b1220;color:#fff;border:1px solid #38bdf8;border-radius:8px;padding:6px;font-size:.85rem';
+    it.tEl.replaceWith(inp);inp.focus();inp.select();
+    const done=()=>{
+      it.name=inp.value.trim()||cur;
+      it.tEl=document.createElement('div');it.tEl.className='t';it.tEl.textContent=it.name;it.tEl.title=it.name;
+      inp.replaceWith(it.tEl);
+    };
+    inp.onblur=done;
+    inp.onkeydown=e=>{if(e.key==='Enter')inp.blur()};
+  };
   const x=document.createElement('button');x.className='x';x.textContent='✕';x.title='Kaldır';
   x.onclick=()=>{if(busy)return;if(it.url)URL.revokeObjectURL(it.url);queue=queue.filter(q=>q!==it);li.remove();updateBtns()};
-  li.append(x);it.li=li;it.stEl=li.querySelector('.st');it.metaEl=li.querySelector('.meta');
+  li.append(ed,x);it.li=li;it.stEl=li.querySelector('.st');it.metaEl=li.querySelector('.meta');
   it.metaEl.textContent=metaText(it);list.append(li);
 }
 function setState(it,s){it.state=s;if(it.stEl)it.stEl.textContent=s}
@@ -171,7 +184,7 @@ const FMT={
   mp3:{ext:'mp3',mime:'audio/mpeg',label:'MP3 (ses)'},
   gif:{ext:'gif',mime:'image/gif',label:'GIF (animasyon)'}
 };
-const outName=n=>n.replace(/\.[^.]+$/,'')+'.'+FMT[$('format').value].ext;
+const outName=it=>it.name.replace(/\.[^.]+$/,'')+'.'+FMT[$('format').value].ext;
 function args(it){
   const f=$('format').value,q=$('quality').value,r=$('resolution').value;
   const T=parseFloat($('targetMB').value)||0,a=['-i','input'];
@@ -228,7 +241,7 @@ convertBtn.onclick=async()=>{
         const buf=await readBuf(it.file);
         const data=await job(()=>ask('convert',{buffer:buf,args:args(it),outName:out}));
         const blob=new Blob([data],{type:fd.mime});
-        const name=outName(it.file.name);
+        const name=outName(it);
         const where=await saveOut(name,blob);
         it.done=true;it.doneFmt=fd.label;it.metaEl.textContent=metaText(it);
         if(it.url)URL.revokeObjectURL(it.url);

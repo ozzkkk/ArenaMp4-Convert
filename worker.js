@@ -64,7 +64,7 @@ self.onmessage=async(e)=>{
       const r=await runCommand({id,inputName:'probe_in',inputBuf:e.data.buffer,args:['-hide_banner','-i','probe_in','-t','1','-f','null','-']});
       postMessage({id,type:'probeResult',info:r.logText});
     }else{
-      const outName=e.data.outName;
+      const outName=e.data.outName||e.data.args[e.data.args.length-1];
       const r=await runCommand({id,inputName:'input',inputBuf:e.data.buffer,args:e.data.args,outName});
       if(r.error)postMessage({id,type:'error',message:r.error});
       else postMessage({id,type:'done',buffer:r.outBuf.buffer},[r.outBuf.buffer]);
