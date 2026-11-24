@@ -17,6 +17,17 @@
   <div id="drop" class="drop" tabindex="0">📁 Videoları seç veya sürükle-bırak<br><small>Birden fazla seçilebilir</small></div>
   <input type="file" id="fileInput" accept="video/*,.mkv,.avi,.mov,.webm,.flv,.wmv,.3gp,.m4v" multiple hidden>
 
+  <label>Çıktı formatı
+    <select id="format">
+      <option value="mp4" selected>MP4 · H.264 + AAC — en uyumlu ⭐</option>
+      <option value="hevc">MP4 · H.265 + AAC — küçük dosya, yavaş</option>
+      <option value="mkv">MKV · H.264 + AAC</option>
+      <option value="webm">WEBM · VP9 + Opus — küçük, yavaş</option>
+      <option value="avi">AVI · MPEG-4 + MP3 — eski cihazlar</option>
+      <option value="mp3">MP3 — sadece ses</option>
+      <option value="gif">GIF — animasyon (ses yok)</option>
+    </select>
+  </label>
   <div class="row">
     <label>Kalite
       <select id="quality">
@@ -33,6 +44,9 @@
         <option value="480">480p</option>
       </select>
     </label>
+    <label>Hedef boyut
+      <input id="targetMB" type="number" min="1" inputmode="numeric" placeholder="yok (MB)">
+    </label>
   </div>
   <label class="chk"><input type="checkbox" id="overwrite" checked> Orijinalin üzerine yaz (mümkünse)</label>
 
@@ -46,7 +60,7 @@
   <p id="status" class="status"></p>
   <ul id="list"></ul>
   <button id="dlAll" class="btn success" hidden>⬇️ Tümünü İndir</button>
-  <p class="hint">İlk dönüşümde motor (~30 MB) bir kez indirilir. Dosyalar cihazınızdan çıkmaz.</p>
+  <p class="hint">İlk dönüşümde motor (~30 MB) bir kez indirilir. Dosyalar cihazınızdan çıkmaz. Üzerine yazma, uzantı eşleşiyorsa yapılır.</p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 <script src="app.js"></script>

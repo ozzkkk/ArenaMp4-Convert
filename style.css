@@ -3,8 +3,8 @@ header{padding:14px 16px;border-bottom:1px solid #334155}header h1{margin:0;font
 main{max-width:640px;margin:auto;padding:14px}
 .drop{border:2px dashed #475569;border-radius:12px;padding:26px 12px;text-align:center;cursor:pointer;background:#1e293b}
 .drop.drag{border-color:#f97316}.drop small{color:#94a3b8}
-.row{display:flex;gap:10px;margin-top:12px}.row label{flex:1;font-size:.85rem;font-weight:600}
-select{width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#fff}
+.row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}.row label{flex:1;min-width:130px;font-size:.85rem;font-weight:600}
+select,input[type=number]{width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#fff;font-size:.95rem}
 .chk{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:.9rem}
 .btns{flex-wrap:wrap}.btn{flex:1;padding:12px;border-radius:12px;border:1px solid #334155;background:#1e293b;color:#fff;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;font-size:.95rem}
 .btn:disabled{opacity:.45}.primary{background:#ea580c;border-color:#ea580c}.success{background:#16a34a;border-color:#16a34a;width:100%;margin-top:10px}.ghost{background:transparent;color:#38bdf8}
@@ -13,7 +13,7 @@ select{width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px soli
 .status{text-align:center;min-height:1.3em;font-size:.9rem}.status.err{color:#fca5a5}.status.ok{color:#86efac}
 #list{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
 #list li{display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px;font-size:.88rem}
-#list .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#list .nm{flex:1;min-width:0}#list .nm .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#list .meta{color:#94a3b8;font-size:.75rem}
 #list .st{color:#94a3b8;font-size:.8rem;white-space:nowrap}
 #list .x{background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer}
 #list a{color:#4ade80;font-weight:700;white-space:nowrap}
