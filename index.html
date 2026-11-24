@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="description" content="Videoları VLC'de açılan MP4'e çevirir. Toplu dönüştürme, orijinalin üzerine yazar.">
+<title>MP4 Dönüştürücü</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>🎬 MP4 Dönüştürücü</h1><p>VLC uyumlu H.264 + AAC MP4</p></header>
+<main>
+  <div id="drop" class="drop" tabindex="0">📁 Videoları seç veya sürükle-bırak<br><small>Birden fazla seçilebilir</small></div>
+  <input type="file" id="fileInput" accept="video/*,.mkv,.avi,.mov,.webm,.flv,.wmv,.3gp,.m4v" multiple hidden>
+
+  <div class="row">
+    <label>Kalite
+      <select id="quality">
+        <option value="fast">Hızlı</option>
+        <option value="balanced" selected>Dengeli</option>
+        <option value="high">Yüksek</option>
+      </select>
+    </label>
+    <label>Çözünürlük
+      <select id="resolution">
+        <option value="original" selected>Orijinal</option>
+        <option value="1080">1080p</option>
+        <option value="720">720p</option>
+        <option value="480">480p</option>
+      </select>
+    </label>
+  </div>
+  <label class="chk"><input type="checkbox" id="overwrite" checked> Orijinalin üzerine yaz (mümkünse)</label>
+
+  <div class="row btns">
+    <button id="addBtn" class="btn">📁 Dosya Ekle</button>
+    <button id="convertBtn" class="btn primary" disabled>🔄 Tümünü Dönüştür</button>
+    <button id="clearBtn" class="btn ghost" hidden>Temizle</button>
+  </div>
+
+  <div class="bar" id="barWrap" hidden><div id="bar"></div></div>
+  <p id="status" class="status"></p>
+  <ul id="list"></ul>
+  <button id="dlAll" class="btn success" hidden>⬇️ Tümünü İndir</button>
+  <p class="hint">İlk dönüşümde motor (~30 MB) bir kez indirilir. Dosyalar cihazınızdan çıkmaz.</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

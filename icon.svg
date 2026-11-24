@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect x="8" y="8" width="496" height="496" rx="110" fill="#0f172a" stroke="#38bdf8" stroke-width="10"/>
+  <circle cx="256" cy="205" r="105" fill="#f97316"/>
+  <path d="M222 150 L310 205 L222 260 Z" fill="#ffffff"/>
+  <text x="256" y="415" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="105" font-weight="bold" fill="#38bdf8">MP4</text>
+</svg>
