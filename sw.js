@@ -1,5 +1,5 @@
 /* MP4 Dönüştürücü — Service Worker (uygulama kabuğu önbelleği) */
-const CACHE = 'mp4-donusturucu-v5';
+const CACHE = 'mp4-donusturucu-v6';
 const SHELL = [
   './',
   'index.html',
