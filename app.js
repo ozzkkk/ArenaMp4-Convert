@@ -1,15 +1,47 @@
 'use strict';
-/* MP4 Dönüştürücü — toplu, üzerine yazan, format tespitli sürüm (FFmpeg.wasm 0.11) */
-const CORE='https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.0/dist/ffmpeg-core.js'; // tek çekirdek: SharedArrayBuffer gerektirmez (GitHub Pages uyumlu)
+/* MP4 Dönüştürücü — toplu, üzerine yazan, format tespitli (ağır iş worker.js'te) */
 const $=id=>document.getElementById(id);
 const drop=$('drop'),input=$('fileInput'),list=$('list'),statusEl=$('status');
 const convertBtn=$('convertBtn'),clearBtn=$('clearBtn'),dlAll=$('dlAll');
 const barWrap=$('barWrap'),bar=$('bar');
-let queue=[],ff=null,loadP=null,busy=false,curRatio=0,curIdx=0,chain=Promise.resolve();
+let queue=[],busy=false,curRatio=0,curIdx=0,chain=Promise.resolve(),msgId=0,activeId=0;
+const pending=new Map();
+let worker=null;
 
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 
-/* --- FFmpeg işleri sıralı çalışsın (run eşzamanlı olamaz) --- */
+/* --- FFmpeg worker bağlantısı --- */
+function onMsg(m){
+  if(m.type==='progress'){if(m.id===activeId){curRatio=m.ratio;drawBar()}return}
+  const r=pending.get(m.id);if(!r)return;
+  pending.delete(m.id);
+  if(m.type==='error')r.reject(new Error(m.message));
+  else if(m.type==='done')r.resolve(m.buffer);
+  else if(m.type==='probeResult')r.resolve(m.info);
+  else r.resolve(null);
+}
+async function getWorker(){
+  if(worker)return worker;
+  try{worker=new Worker('worker.js')}
+  catch(_){
+    const code=await (await fetch('worker.js')).text();
+    worker=new Worker(URL.createObjectURL(new Blob([code])));
+  }
+  worker.onmessage=e=>onMsg(e.data);
+  worker.onerror=e=>{
+    const err=new Error('Worker hatası: '+(e.message||'bilinmiyor'));
+    pending.forEach(r=>r.reject(err));pending.clear();
+  };
+  return worker;
+}
+function ask(type,payload){
+  return getWorker().then(w=>new Promise((resolve,reject)=>{
+    const id=++msgId;pending.set(id,{resolve,reject});
+    if(type==='convert'){activeId=id;curRatio=0;drawBar()}
+    w.postMessage({id,type,...payload},payload.buffer?[payload.buffer]:[]);
+  }));
+}
+/* işler sıralı: worker tek iş yapsın */
 const job=fn=>{const p=chain.then(fn,fn);chain=p.then(()=>{},()=>{});return p};
 
 /* --- dosya ekleme --- */
@@ -61,35 +93,18 @@ input.onchange=()=>{[...input.files].forEach(f=>addFile(f));input.value=''};
 drop.addEventListener('drop',e=>[...e.dataTransfer.files].forEach(f=>addFile(f)));
 clearBtn.onclick=()=>{if(busy)return;queue.forEach(q=>q.url&&URL.revokeObjectURL(q.url));queue=[];list.innerHTML='';updateBtns();statusEl.textContent=''};
 
-/* --- FFmpeg --- */
-function reset(){try{ff&&ff.exit()}catch(_){}ff=null;loadP=null} // bozuk örneği at, tazesini yükle
-function ensure(){
-  if(ff&&loadP===null)return Promise.resolve(ff);
-  if(loadP)return loadP;
-  if(typeof FFmpeg==='undefined')return Promise.reject(new Error('FFmpeg yüklenemedi, interneti kontrol edin.'));
-  if(!busy)statusEl.textContent='Motor indiriliyor (~30 MB, bir kez)…';
-  barWrap.hidden=false;
-  ff=FFmpeg.createFFmpeg({log:false,corePath:CORE,mainName:'main'}); // core-st: giriş _main
-  ff.setProgress(({ratio})=>{curRatio=ratio;if(busy)drawBar()});
-  loadP=ff.load().then(()=>{if(!busy)statusEl.textContent='';return ff},e=>{loadP=null;throw e});
-  return loadP;
-}
 function drawBar(){
   const total=queue.length||1,pct=Math.round(((curIdx+curRatio)/total)*100);
   bar.style.width=pct+'%';
 }
+
 /* --- format tespiti (seçimde, arka planda) --- */
 async function probe(it){
   if(it.srcFmt)return;
   if(!busy)statusEl.textContent='Format tespit ediliyor…';
   try{
-    let info='';
-    try{
-      const f=await ensure();
-      await f.FS('writeFile','probe_in',await FFmpeg.fetchFile(it.file));
-      f.setLogger(({message})=>info+=message+'\n');
-      await f.run('-hide_banner','-i','probe_in','-t','1','-f','null','-');
-    }finally{reset()} // çekirdek tek komuttan sonra ölür; her işten sonra tazele
+    const buf=await it.file.arrayBuffer();
+    const info=await job(()=>ask('probe',{buffer:buf}));
     const v=/Video:\s*([\w.]+)/.exec(info),au=/Audio:\s*([\w.]+)/.exec(info);
     const res=/Video:.*?(\d{2,5})x(\d{2,5})/.exec(info);
     const d=/Duration:\s*(\d+):(\d+):([\d.]+)/.exec(info);
@@ -115,6 +130,7 @@ const outName=n=>n.replace(/\.[^.]+$/,'')+'.'+FMT[$('format').value].ext;
 function args(it){
   const f=$('format').value,q=$('quality').value,r=$('resolution').value;
   const T=parseFloat($('targetMB').value)||0,a=['-i','input'];
+  const ext=FMT[f].ext;
   if(f==='gif'){
     const h=r==='original'?480:r,fps={fast:'8',balanced:'10',high:'15'}[q];
     return a.concat('-filter_complex',`[0:v]fps=${fps},scale=-2:${h}:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse`,'-loop','0','-y','output.gif');
@@ -124,8 +140,13 @@ function args(it){
     if(T>0&&it.duration>0)br=Math.min(320,Math.max(48,Math.floor(T*1024*8/it.duration)-8))+'k';
     return a.concat('-vn','-c:a','libmp3lame','-b:a',br,'-y','output.mp3');
   }
+  // Kodekleri koru: sadece yeniden paketle (saniyeler içinde, kayıpsız)
+  if($('keepCodecs').checked&&['mp4','mkv','mov'].includes(f)&&r==='original'&&!T){
+    a.push('-map','0:v','-map','0:a?','-c','copy');
+    if(f!=='mkv')a.push('-movflags','+faststart');
+    return a.concat('-y','output.'+ext);
+  }
   if(r!=='original')a.push('-vf',`scale=-2:${r}`);
-  // Hedef boyut verildiyse bitrate hesapla (süre bilgisi gerekir)
   const useBR=T>0&&it.duration>0;
   const vopt=useBR?(()=>{const vb=Math.max(80,Math.floor(T*1024*8/it.duration)-138);
     return ['-b:v',vb+'k','-maxrate',Math.round(vb*1.5)+'k','-bufsize',(vb*3)+'k']})():null;
@@ -145,7 +166,7 @@ function args(it){
     if(hevc)a.push('-tag:v','hvc1');
     a.push('-movflags','+faststart');
   }
-  return a.concat('-y','output.'+FMT[f].ext);
+  return a.concat('-y','output.'+ext);
 }
 async function overwrite(handle,blob){
   if((await handle.requestPermission({mode:'readwrite'}))!=='granted')throw new Error('Yazma izni yok');
@@ -162,14 +183,8 @@ convertBtn.onclick=async()=>{
       setState(it,'Dönüştürülüyor…');statusEl.textContent=`${i+1}/${queue.length}: ${it.file.name}`;
       try{
         const fd=FMT[$('format').value],ext=fd.ext,out='output.'+ext;
-        const data=await job(async()=>{ // tek sıradaki bütün iş: probe ile çakışmasın
-          try{
-            const f=await ensure();
-            await f.FS('writeFile','input',await FFmpeg.fetchFile(it.file));
-            await f.run(...args(it));
-            return new Uint8Array(f.FS('readFile',out));
-          }finally{reset()} // çekirdek tek komuttan sonra ölür
-        });
+        const buf=await it.file.arrayBuffer();
+        const data=await job(()=>ask('convert',{buffer:buf,args:args(it),outName:out}));
         const blob=new Blob([data],{type:fd.mime});
         // Önce orijinalin üzerine yazmayı dene (uzantı eşleşiyorsa)
         let done=false;
@@ -184,11 +199,11 @@ convertBtn.onclick=async()=>{
           const a=document.createElement('a');a.href=it.url;a.download=outName(it.file.name);a.textContent='⬇️ '+ext.toUpperCase();
           it.stEl.replaceWith(a);it.stEl=a;it.state='Hazır ✅';
         }
-      }catch(e){console.error(e);reset();setState(it,'Hata ❌')}
+      }catch(e){console.error(e);setState(it,'Hata ❌')}
       curRatio=1;drawBar();
     }
     statusEl.textContent='Bitti!';statusEl.className='status ok';
-  }catch(e){reset();statusEl.textContent=e.message;statusEl.className='status err'}
+  }catch(e){statusEl.textContent=e.message;statusEl.className='status err'}
   busy=false;updateBtns();
 };
 

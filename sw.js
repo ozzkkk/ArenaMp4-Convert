@@ -1,10 +1,11 @@
 /* MP4 Dönüştürücü — Service Worker (uygulama kabuğu önbelleği) */
-const CACHE = 'mp4-donusturucu-v6';
+const CACHE = 'mp4-donusturucu-v7';
 const SHELL = [
   './',
   'index.html',
   'style.css',
   'app.js',
+  'worker.js',
   'manifest.webmanifest',
   'icon.svg',
   'icon-192.png',

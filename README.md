@@ -9,6 +9,8 @@ Videoları **VLC'de sorunsuz açılan MP4 (H.264 + AAC)** dosyalarına çeviren,
 - 🎞️ **Format seçenekleri:** MP4 (H.264+AAC ⭐), MP4 (H.265+AAC), MKV, WEBM (VP9+Opus), AVI (MPEG-4+MP3), MP3 (ses), GIF (animasyon)
 - 🔍 **Format tespiti:** seçilen videonun mevcut formatı satırında görünür (ör. `AVI · MPEG-4 + MP3 • 640x480`), dönüşüm sonrası `→ MP4 · H.264 + AAC` yazar
 - 🎯 **Hedef boyut:** "100 MB'a sığdır" gibi bir hedef girin, bit hızı ona göre hesaplanır
+- ⚡ **Kodekleri koru:** zaten uyumlu dosyalar saniyeler içinde yeniden paketlenir (kayıpsız)
+- 🧵 Dönüşüm **Web Worker**'da yapılır — ekran kilitlenmez, ilerleme çubuğu canlı akar
 - 🔒 Dosyalar cihazdan çıkmaz (FFmpeg.wasm)
 
 ## GitHub Pages'e yükleme

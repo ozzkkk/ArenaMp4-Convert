@@ -48,6 +48,7 @@
       <input id="targetMB" type="number" min="1" inputmode="numeric" placeholder="yok (MB)">
     </label>
   </div>
+  <label class="chk"><input type="checkbox" id="keepCodecs" checked> ⚡ Kodekleri koru (yeniden paketle — anında, kayıpsız)</label>
   <label class="chk"><input type="checkbox" id="overwrite" checked> Orijinalin üzerine yaz (mümkünse)</label>
 
   <div class="row btns">
@@ -60,9 +61,8 @@
   <p id="status" class="status"></p>
   <ul id="list"></ul>
   <button id="dlAll" class="btn success" hidden>⬇️ Tümünü İndir</button>
-  <p class="hint">İlk dönüşümde motor (~30 MB) bir kez indirilir. Dosyalar cihazınızdan çıkmaz. Üzerine yazma, uzantı eşleşiyorsa yapılır.</p>
+  <p class="hint">İlk işlemde motor (~30 MB) bir kez indirilir, sonra çevrimdışı çalışır. Dönüşüm arka planda olur, ekran kilitlenmez. "Kodekleri koru" açıksa sadece yeniden paketlenir; kapatınca gerçek kodlama (yavaş ama küçültür/dönüştürür) yapılır.</p>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
