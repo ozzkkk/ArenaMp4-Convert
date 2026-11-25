@@ -62,7 +62,7 @@ async function initSave(){
       const h=await idbGet();
       if(h){rootHandle=h;dirHandle=await h.getDirectoryHandle('mp4',{create:true})}
     }catch(_){}
-    saveInfo.textContent=dirHandle?'Kayıt: İndirilenler/mp4 ✅':'Kayıt: İndirilenler — mp4 klasörü için bir kez seçin';
+    saveInfo.textContent=dirHandle?'Kayıt: dosyanın üzerine • yedek: İndirilenler/mp4 ✅':'Kayıt: dosyanın üzerine • yedek için klasör seçin';
   }else{
     saveInfo.textContent='Kayıt: İndirilenler (otomatik indirme)';
   }
@@ -73,7 +73,7 @@ async function pickDir(){
     if((await h.requestPermission({mode:'readwrite'}))!=='granted')throw new Error('Yazma izni verilmedi');
     rootHandle=h;dirHandle=await h.getDirectoryHandle('mp4',{create:true});
     await idbSet(h);
-    saveInfo.textContent='Kayıt: İndirilenler/mp4 ✅ (klasör oluşturuldu)';
+    saveInfo.textContent='Kayıt: dosyanın üzerine • yedek: İndirilenler/mp4 ✅';
   }catch(e){if(e.name!=='AbortError')saveInfo.textContent='Klasör seçilemedi: '+e.message}
 }
 async function ensurePerm(){
@@ -84,7 +84,36 @@ async function ensurePerm(){
     dirHandle=await rootHandle.getDirectoryHandle('mp4',{create:true});
   }catch(_){dirHandle=null}
 }
-async function saveOut(name,blob){
+/* Dosya üzerine yazma izni (seçilen dosyayı değiştirmek için) */
+async function ensureFilePerm(h){
+  if(!h)return false;
+  try{
+    if(h.queryPermission){
+      if((await h.queryPermission({mode:'readwrite'}))!=='granted'
+        &&(await h.requestPermission({mode:'readwrite'}))!=='granted')return false;
+    }
+    return true;
+  }catch(_){return false}
+}
+/* Kayıt: önce orijinal dosyanın yerine yaz (eski silinir); olmazsa İndirilenler/mp4'e */
+async function saveOut(it,blob){
+  const name=outName(it);
+  if(it.handle&&await ensureFilePerm(it.handle)){
+    try{
+      if(name===it.file.name){ // aynı ad → üzerine yaz; eski içerik kaybolur
+        const w=await it.handle.createWritable();await w.write(blob);await w.close();
+        return 'replace';
+      }
+      let parent=null;
+      try{parent=await it.handle.getParent()}catch(_){}
+      if(parent){ // ad/uzantı değişti → yenisini yaz, eskisini sil
+        const nh=await parent.getFileHandle(name,{create:true});
+        const w=await nh.createWritable();await w.write(blob);await w.close();
+        try{await it.handle.remove()}catch(_){try{await parent.removeEntry(it.file.name)}catch(_2){}}
+        return 'renamed';
+      }
+    }catch(e){console.warn('üzerine yazılamadı',e)}
+  }
   if(dirHandle){
     try{
       const fh=await dirHandle.getFileHandle(name,{create:true});
@@ -106,10 +135,10 @@ const CN={h264:'H.264',hevc:'H.265',mpeg4:'MPEG-4',mpeg2video:'MPEG-2',mpeg1vide
 aac:'AAC',mp3:'MP3',opus:'Opus',vorbis:'Vorbis',ac3:'AC3',eac3:'E-AC3',mp2:'MP2',wmav2:'WMA',wmav1:'WMA',pcm_s16le:'PCM',pcm_s24le:'PCM',flac:'FLAC',alac:'ALAC',amr_nb:'AMR',amr_wb:'AMR'};
 const metaText=it=>sz(it.file.size)+(it.srcFmt?' • '+it.srcFmt:'')+(it.doneFmt?' → '+it.doneFmt:'');
 
-function addFile(file){
+function addFile(file,handle){
   if(!ok(file))return;
   if(queue.some(q=>q.file.name===file.name&&q.file.size===file.size))return;
-  const item={file,name:file.name,url:null,state:'Bekliyor',done:false};
+  const item={file,name:file.name,handle:handle||null,url:null,state:'Bekliyor',done:false};
   queue.push(item);renderItem(item);updateBtns();
   job(()=>probe(item));
 }
@@ -141,12 +170,18 @@ function updateBtns(){
   convertBtn.disabled=!queue.length||busy;
   clearBtn.hidden=!queue.length;
 }
-/* Dosyalar uygulaması (gerçek adlar). accept="video/*" Android'de galeri seçicisini açar → kullanmıyoruz */
+/* Dosyalar uygulaması (gerçek adlar + üzerine yazma). accept="video/*" Android'de galeri seçicisini açar → kullanmıyoruz */
 async function pick(){
   if(window.showOpenFilePicker){
     try{
       const hs=await showOpenFilePicker({multiple:true});
-      for(const h of hs)addFile(await h.getFile());
+      for(const h of hs){
+        try{ // üzerine yazma iznini şimdi iste (kullanıcı hareketi içinde)
+          if(h.queryPermission&&(await h.queryPermission({mode:'readwrite'}))!=='granted')
+            await h.requestPermission({mode:'readwrite'});
+        }catch(_){}
+        addFile(await h.getFile(),h);
+      }
       return;
     }catch(e){if(e.name==='AbortError')return}
   }
@@ -251,16 +286,16 @@ convertBtn.onclick=async()=>{
         const buf=await readBuf(it.file);
         const data=await job(()=>ask('convert',{buffer:buf,args:args(it),outName:out}));
         const blob=new Blob([data],{type:fd.mime});
-        const name=outName(it);
-        const where=await saveOut(name,blob);
+        const where=await saveOut(it,blob);
+        const WTXT={replace:'Üzerine yazıldı ✅',renamed:'Yenilendi ✅',folder:'Kaydedildi ✅',download:'İndirildi ✅'};
         it.done=true;it.doneFmt=fd.label;it.metaEl.textContent=metaText(it);
         if(it.url)URL.revokeObjectURL(it.url);
         it.url=URL.createObjectURL(blob);
         it.stEl.textContent='';
-        const sp=document.createElement('span');sp.textContent=where==='folder'?'Kaydedildi ✅':'İndirildi ✅';
-        const a=document.createElement('a');a.href=it.url;a.download=name;a.textContent=' ⬇️';a.title='Yeniden indir';
+        const sp=document.createElement('span');sp.textContent=WTXT[where]||'Kaydedildi ✅';
+        const a=document.createElement('a');a.href=it.url;a.download=outName(it);a.textContent=' ⬇️';a.title='Yeniden indir';
         it.stEl.append(sp,a);
-        it.state=where==='folder'?'Kaydedildi':'İndirildi';
+        it.state=(WTXT[where]||'Kaydedildi').replace(' ✅','');
       }catch(e){
         console.error(e);setState(it,'Hata ❌');
         it.metaEl.textContent=metaText(it)+' — '+String(e&&e.message||e).slice(0,80);
