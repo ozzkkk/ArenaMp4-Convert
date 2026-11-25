@@ -1,5 +1,7 @@
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,Arial,sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh}
 header{padding:14px 16px;border-bottom:1px solid #334155}header h1{margin:0;font-size:1.15rem}header p{margin:2px 0 0;color:#94a3b8;font-size:.85rem}
+.titlerow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ver{font-size:.78rem;color:#94a3b8;background:#1e293b;border:1px solid #334155;border-radius:999px;padding:2px 10px;white-space:nowrap}
 main{max-width:640px;margin:auto;padding:14px}
 .drop{border:2px dashed #475569;border-radius:12px;padding:26px 12px;text-align:center;cursor:pointer;background:#1e293b}
 .drop.drag{border-color:#f97316}.drop small{color:#94a3b8}

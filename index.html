@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
 <meta name="description" content="Videoları VLC'de açılan MP4'e çevirir. Toplu dönüştürme, orijinalin üzerine yazar.">
-<title>MP4 Dönüştürücü</title>
+<title>ArenaMP4 Convert</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><h1>🎬 MP4 Dönüştürücü</h1><p>VLC uyumlu H.264 + AAC MP4</p></header>
+<header><div class="titlerow"><h1>🎬 ArenaMP4 Convert</h1><span class="ver">v13</span></div><p>VLC uyumlu H.264 + AAC MP4</p></header>
 <main>
   <div id="drop" class="drop" tabindex="0">📂 Dosyalardan video seç<br><small>Birden fazla seçilebilir • orijinal adıyla</small></div>
   <input type="file" id="fileInput" multiple hidden>
@@ -50,8 +50,8 @@
   </div>
   <label class="chk"><input type="checkbox" id="keepCodecs" checked> ⚡ Kodekleri koru (yeniden paketle — anında, kayıpsız)</label>
   <div class="saverow">
-    <span id="saveInfo" class="hint">Kayıt: İndirilenler (otomatik)</span>
-    <button id="pickDirBtn" class="btn ghost btn-sm" hidden>📁 mp4 klasörü seç</button>
+    <span id="saveInfo" class="hint">Kayıt: videonun bulunduğu klasöre (üzerine yazılır)</span>
+    <button id="pickDirBtn" class="btn ghost btn-sm" hidden>📁 Video klasörü</button>
   </div>
 
   <div class="row btns">
@@ -62,8 +62,8 @@
   <div class="bar" id="barWrap" hidden><div id="bar"></div></div>
   <p id="status" class="status"></p>
   <ul id="list"></ul>
-  <p class="hint">Dönüştürülen video <strong>orijinal dosyanın üzerine yazılır</strong> — eski silinir, ad korunur (uzantı değişirse yeni uzantıyla kaydedilir). Sürükle-bırak ile eklenenler İndirilenler/mp4'e kaydedilir. Listede ✏️ ile adı düzeltebilirsiniz. İlk işlemde motor (~30 MB) bir kez indirilir.</p>
+  <p class="hint">Dönüştürülen video <strong>orijinal dosyanın üzerine yazılır</strong> — eski silinir, ad korunur (uzantı değişirse yeni uzantıyla kaydedilir). İlk dönüşümde <strong>bir kez</strong> videonun bulunduğu klasörü seçin; her şey orada olur. Listede ✏️ ile adı düzeltebilirsiniz. Motor (~30 MB) bir kez indirilir.</p>
 </main>
 <script src="app.js"></script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5fed3389f50c660',t:'MTc5NTU5MDUzNw=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5fed3389f50c660',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5ff008538a65912',t:'MTc5NTU5MjM5Mg=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5ff008538a65912',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

@@ -5,7 +5,7 @@ const drop=$('drop'),input=$('fileInput'),list=$('list'),statusEl=$('status');
 const convertBtn=$('convertBtn'),clearBtn=$('clearBtn'),saveInfo=$('saveInfo');
 const barWrap=$('barWrap'),bar=$('bar');
 let queue=[],busy=false,curRatio=0,curIdx=0,chain=Promise.resolve(),msgId=0,activeId=0;
-let worker=null,rootHandle=null,dirHandle=null;
+let worker=null,srcDir=null;
 const pending=new Map();
 
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
@@ -53,38 +53,53 @@ const readBuf=file=>new Promise((res,rej)=>{
 });
 
 /* --- kayıt yeri: İndirilenler/mp4 --- */
-const idbGet=()=>new Promise(r=>{try{const q=indexedDB.open('mp4d',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>{const t=q.result.transaction('kv').objectStore('kv').get('dir');t.onsuccess=()=>r(t.result||null);t.onerror=()=>r(null)};q.onerror=()=>r(null)}catch(_){r(null)}});
-const idbSet=h=>new Promise(r=>{try{const q=indexedDB.open('mp4d',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>{const t=q.result.transaction('kv','readwrite').objectStore('kv').put(h,'dir');t.onsuccess=()=>r(true);t.onerror=()=>r(false)};q.onerror=()=>r(false)}catch(_){r(false)}});
+const idbGet=k=>new Promise(r=>{try{const q=indexedDB.open('mp4d',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>{const t=q.result.transaction('kv').objectStore('kv').get(k);t.onsuccess=()=>r(t.result||null);t.onerror=()=>r(null)};q.onerror=()=>r(null)}catch(_){r(null)}});
+const idbSet=(k,h)=>new Promise(r=>{try{const q=indexedDB.open('mp4d',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>{const t=q.result.transaction('kv','readwrite').objectStore('kv').put(h,k);t.onsuccess=()=>r(true);t.onerror=()=>r(false)};q.onerror=()=>r(false)}catch(_){r(false)}});
+/* Klasör izni — API bozuksa yazmayı yine de dene (hata = vazgeçme!) */
+async function dirPerm(h){
+  if(!h)return false;
+  try{
+    if(h.queryPermission){
+      if((await h.queryPermission({mode:'readwrite'}))!=='granted'
+        &&(await h.requestPermission({mode:'readwrite'}))!=='granted')return false;
+    }
+    return true;
+  }catch(_){return true}
+}
+/* Video klasörü (dosyanın bulunduğu yer) — bir kez seçilir, IDB'de kalır */
+async function ensureSrcDir(mayPick){
+  if(srcDir&&await dirPerm(srcDir))return true;
+  srcDir=null;
+  try{const h=await idbGet('src');if(h)srcDir=h}catch(_){}
+  if(srcDir&&await dirPerm(srcDir))return true;
+  srcDir=null;
+  if(!mayPick||!window.showDirectoryPicker)return false;
+  try{
+    const h=await showDirectoryPicker({mode:'readwrite',id:'src'});
+    if((await h.requestPermission({mode:'readwrite'}))!=='granted')return false;
+    srcDir=h;await idbSet('src',h);
+    saveInfo.textContent='Kayıt: videonun bulunduğu klasör ✅ (üzerine yazılır)';
+    return true;
+  }catch(e){if(e.name!=='AbortError')saveInfo.textContent='Klasör seçilemedi: '+e.message;return false}
+}
 async function initSave(){
   if(window.showDirectoryPicker){
     $('pickDirBtn').hidden=false;
-    try{
-      const h=await idbGet();
-      if(h){rootHandle=h;dirHandle=await h.getDirectoryHandle('mp4',{create:true})}
-    }catch(_){}
-    saveInfo.textContent=dirHandle?'Kayıt: dosyanın üzerine • yedek: İndirilenler/mp4 ✅':'Kayıt: dosyanın üzerine • yedek için klasör seçin';
+    await ensureSrcDir(false);
+    saveInfo.textContent=srcDir?'Kayıt: videonun bulunduğu klasör ✅ (üzerine yazılır)':'Kayıt: ilk dönüşümde video klasörünü seçin';
   }else{
     saveInfo.textContent='Kayıt: İndirilenler (otomatik indirme)';
   }
 }
 async function pickDir(){
   try{
-    const h=await showDirectoryPicker({mode:'readwrite'});
+    const h=await showDirectoryPicker({mode:'readwrite',id:'src'});
     if((await h.requestPermission({mode:'readwrite'}))!=='granted')throw new Error('Yazma izni verilmedi');
-    rootHandle=h;dirHandle=await h.getDirectoryHandle('mp4',{create:true});
-    await idbSet(h);
-    saveInfo.textContent='Kayıt: dosyanın üzerine • yedek: İndirilenler/mp4 ✅';
+    srcDir=h;await idbSet('src',h);
+    saveInfo.textContent='Kayıt: videonun bulunduğu klasör ✅ (üzerine yazılır)';
   }catch(e){if(e.name!=='AbortError')saveInfo.textContent='Klasör seçilemedi: '+e.message}
 }
-async function ensurePerm(){
-  if(!rootHandle)return;
-  try{
-    if((await rootHandle.queryPermission({mode:'readwrite'}))!=='granted'
-      &&(await rootHandle.requestPermission({mode:'readwrite'}))!=='granted'){dirHandle=null;return}
-    dirHandle=await rootHandle.getDirectoryHandle('mp4',{create:true});
-  }catch(_){dirHandle=null}
-}
-/* Dosya üzerine yazma izni (seçilen dosyayı değiştirmek için) */
+/* Dosya üzerine yazma izni — API bozuksa yazmayı yine de dene */
 async function ensureFilePerm(h){
   if(!h)return false;
   try{
@@ -93,32 +108,42 @@ async function ensureFilePerm(h){
         &&(await h.requestPermission({mode:'readwrite'}))!=='granted')return false;
     }
     return true;
-  }catch(_){return false}
+  }catch(_){return true}
 }
-/* Kayıt: önce orijinal dosyanın yerine yaz (eski silinir); olmazsa İndirilenler/mp4'e */
+/* Kayıt sırası: 1) dosyanın üzerine yaz 2) üst klasörden yaz+eskisini sil
+   3) video klasörüne yaz+eskisini sil 4) son çare: otomatik indirme */
 async function saveOut(it,blob){
   const name=outName(it);
-  if(it.handle&&await ensureFilePerm(it.handle)){
-    try{
-      if(name===it.file.name){ // aynı ad → üzerine yaz; eski içerik kaybolur
+  if(it.handle){
+    await ensureFilePerm(it.handle);
+    if(name===it.file.name){
+      try{
         const w=await it.handle.createWritable();await w.write(blob);await w.close();
         return 'replace';
-      }
-      let parent=null;
-      try{parent=await it.handle.getParent()}catch(_){}
-      if(parent){ // ad/uzantı değişti → yenisini yaz, eskisini sil
-        const nh=await parent.getFileHandle(name,{create:true});
-        const w=await nh.createWritable();await w.write(blob);await w.close();
-        try{await it.handle.remove()}catch(_){try{await parent.removeEntry(it.file.name)}catch(_2){}}
-        return 'renamed';
-      }
-    }catch(e){console.warn('üzerine yazılamadı',e)}
-  }
-  if(dirHandle){
+      }catch(e){console.warn('dosyaya yazılamadı',e)}
+    }
     try{
-      const fh=await dirHandle.getFileHandle(name,{create:true});
-      const w=await fh.createWritable();await w.write(blob);await w.close();
-      return 'folder';
+      const parent=await it.handle.getParent();
+      const nh=await parent.getFileHandle(name,{create:true});
+      const w=await nh.createWritable();await w.write(blob);await w.close();
+      if(name!==it.file.name){
+        let gone=false;
+        try{await parent.removeEntry(it.file.name);gone=true}catch(_){try{await it.handle.remove();gone=true}catch(_2){}}
+        return gone?'renamed':'keep';
+      }
+      return 'replace';
+    }catch(e){console.warn('üst klasöre yazılamadı',e)}
+  }
+  if(await ensureSrcDir(false)){
+    try{
+      const nh=await srcDir.getFileHandle(name,{create:true});
+      const w=await nh.createWritable();await w.write(blob);await w.close();
+      if(name!==it.file.name){
+        let gone=false;
+        try{await srcDir.removeEntry(it.file.name);gone=true}catch(_){}
+        return gone?'renamed':'keep';
+      }
+      return 'replace';
     }catch(e){console.warn('klasöre yazılamadı',e)}
   }
   const url=URL.createObjectURL(blob);
@@ -275,7 +300,7 @@ function args(it){
 convertBtn.onclick=async()=>{
   if(busy||!queue.length)return;
   busy=true;updateBtns();statusEl.className='status';barWrap.hidden=false;curIdx=0;curRatio=0;
-  await ensurePerm(); // kullanıcı hareketi içinde izin tazele
+  await ensureSrcDir(true); // kullanıcı hareketi içinde: klasör gerekiyorsa şimdi seçilsin
   try{
     for(let i=0;i<queue.length;i++){
       const it=queue[i];curIdx=i;curRatio=0;drawBar();
@@ -287,7 +312,7 @@ convertBtn.onclick=async()=>{
         const data=await job(()=>ask('convert',{buffer:buf,args:args(it),outName:out}));
         const blob=new Blob([data],{type:fd.mime});
         const where=await saveOut(it,blob);
-        const WTXT={replace:'Üzerine yazıldı ✅',renamed:'Yenilendi ✅',folder:'Kaydedildi ✅',download:'İndirildi ✅'};
+        const WTXT={replace:'Üzerine yazıldı ✅',renamed:'Yenilendi ✅',keep:'Kaydedildi ⚠️ eski silinemedi',download:'İndirilenler’e indi ⚠️'};
         it.done=true;it.doneFmt=fd.label;it.metaEl.textContent=metaText(it);
         if(it.url)URL.revokeObjectURL(it.url);
         it.url=URL.createObjectURL(blob);
